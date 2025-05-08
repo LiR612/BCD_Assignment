@@ -1,21 +1,23 @@
-// app/api/verify-product/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: { address: string } }
 ) {
   const { params } = context;
   const awaitedParams = await params;
-  const id = awaitedParams.id;
+  const address = awaitedParams.address;
 
   try {
-    const res = await fetch(`http://localhost:3001/verify-product/${id}`);
+    const res = await fetch(`http://localhost:3001/check-admin/${address}`);
     const data = await res.json();
     return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json(
-      { status: "error", message: err.message || "Failed to verify product" },
+      {
+        status: "error",
+        message: err.message || "Failed to check admin status",
+      },
       { status: 500 }
     );
   }

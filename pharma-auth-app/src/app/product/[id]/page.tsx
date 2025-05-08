@@ -11,14 +11,20 @@ type ProductMetadata = {
   expiry_date: string;
 };
 
+type Stage = {
+  stage_name: string;
+  timestamp: string;
+};
+
 type VerificationResult = {
   productID: string;
   isAuthentic: boolean;
   metadata: ProductMetadata;
+  stages?: Stage[]; // include stage details if verified
 };
 
 export default function ProductPage() {
-  const { id } = useParams<{ id: string }>(); // use React Hook instead of params prop
+  const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,17 +71,45 @@ export default function ProductPage() {
           </div>
         ) : result?.isAuthentic ? (
           <div className="bg-green-100 border border-green-500 text-green-700 p-4 rounded mb-4">
-            ✅ Verified Product
+            <h3 className="text-xl font-semibold mb-2">✅ Verified Product</h3>
             <ul className="mt-2 text-left list-disc list-inside">
-              <li><strong>Type:</strong> {result.metadata.product_type}</li>
-              <li><strong>Batch:</strong> {result.metadata.batch_number}</li>
-              <li><strong>Manufactured:</strong> {new Date(result.metadata.manufacturing_date).toLocaleDateString()}</li>
-              <li><strong>Expires:</strong> {new Date(result.metadata.expiry_date).toLocaleDateString()}</li>
+              <li>
+                <strong>Type:</strong> {result.metadata.product_type}
+              </li>
+              <li>
+                <strong>Batch:</strong> {result.metadata.batch_number}
+              </li>
+              <li>
+                <strong>Manufactured:</strong>{" "}
+                {new Date(
+                  result.metadata.manufacturing_date
+                ).toLocaleDateString()}
+              </li>
+              <li>
+                <strong>Expires:</strong>{" "}
+                {new Date(result.metadata.expiry_date).toLocaleDateString()}
+              </li>
             </ul>
+            {result.stages && (
+              <div className="mt-4">
+                <h3 className="text-xl font-semibold mb-2">
+                  📦 Product Stages
+                </h3>
+                <ul className="mt-2 text-left list-disc list-inside">
+                  {result.stages.map((s, i) => (
+                    <li key={i}>
+                      <strong>{s.stage_name}</strong> –{" "}
+                      {new Date(s.timestamp).toLocaleString()}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-red-100 border border-red-500 text-red-700 p-4 rounded mb-4">
-            ❌ This product is <strong>not verified</strong>. It may be counterfeit or the product ID was entered incorrectly.
+            ❌ This product is <strong>not verified</strong>. It may be
+            counterfeit or the product ID was entered incorrectly.
           </div>
         )}
 

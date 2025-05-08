@@ -46,7 +46,14 @@ async function addProduct(productID, productType, batchNumber) {
     await db.query(
       `INSERT INTO products (product_id, product_type, batch_number, manufacturing_date, expiry_date, latest_stage) 
       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [productID, productType, batchNumber, mfgDateStr, expiryDateStr, "Created"]
+      [
+        productID,
+        productType,
+        batchNumber,
+        mfgDateStr,
+        expiryDateStr,
+        "Created",
+      ]
     );
     console.log(`✅ Added product ${productID} to the database`);
 
@@ -139,6 +146,7 @@ async function addStage(productID, stageName) {
     throw error;
   }
 }
+
 /**
  * Verify product authenticity by comparing blockchain and database hashes
  * @param {string} productID - The product ID to verify
@@ -146,11 +154,8 @@ async function addStage(productID, stageName) {
  */
 async function verifyProduct(productID) {
   try {
-    if (!productID) {
-      throw new Error("Product ID is required");
-    }
+    if (!productID) throw new Error("Product ID is required");
 
-    // Get product from database
     const productResult = await db.query(
       "SELECT * FROM products WHERE product_id = $1",
       [productID]
@@ -160,27 +165,22 @@ async function verifyProduct(productID) {
     }
 
     const product = productResult.rows[0];
-
-    // Convert manufacturing_date and expiry_date to Date objects
     const manufacturingDate = new Date(product.manufacturing_date);
     const expiryDate = new Date(product.expiry_date);
 
-    // Check if the product is complete
     if (product.latest_stage !== "Complete") {
-      console.log(
-        `⚠️ Product ${productID} exists but hasn't reached the end of the supply chain. Cannot verify authenticity yet.`
-      );
+      console.log(`⚠️ Product ${productID} is incomplete`);
       return { productID, isAuthentic: false, reason: "Incomplete product" };
     }
 
-    // Fetch all stages for the product
+    // ✅ Use full stage data for hashing
     const stagesResult = await db.query(
       "SELECT * FROM stages WHERE product_id = $1 ORDER BY timestamp ASC",
       [productID]
     );
-    const stages = stagesResult.rows;
+    const fullStages = stagesResult.rows;
 
-    // Calculate hash from product and stage data
+    // ✅ Encode full data structure for hashing
     const abiCoder = ethers.AbiCoder.defaultAbiCoder();
     const combinedData = abiCoder.encode(
       ["string", "string", "string", "string", "string", "string"],
@@ -190,28 +190,18 @@ async function verifyProduct(productID) {
         product.batch_number,
         manufacturingDate.toISOString(),
         expiryDate.toISOString(),
-        JSON.stringify(stages),
+        JSON.stringify(fullStages),
       ]
     );
     const calculatedHash = ethers.keccak256(combinedData);
-
-    // Get product hash from blockchain
     const blockchainHash = await contract.getProductHash(productID);
-
-    // Compare hashes
     const isAuthentic = calculatedHash === blockchainHash;
 
-    if (isAuthentic) {
-      console.log(`✅ Product ${productID} is authentic`);
-    } else {
-      console.log(
-        `❌ Product ${productID} authenticity could not be verified❗`
-      );
-      console.log(`Calculated hash: ${calculatedHash}`);
-      console.log(`Blockchain hash: ${blockchainHash}`);
-    }
+    const responseStages = fullStages.map(({ stage_name, timestamp }) => ({
+      stage_name,
+      timestamp,
+    }));
 
-    // Include metadata in the response
     return {
       productID,
       isAuthentic,
@@ -223,9 +213,67 @@ async function verifyProduct(productID) {
         manufacturing_date: product.manufacturing_date,
         expiry_date: product.expiry_date,
       },
+      ...(isAuthentic && { stages: responseStages }),
     };
   } catch (error) {
     console.error(`❌ Verification failed: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Get all products (for selection in UI)
+ * @returns {Array} List of product_id and product_type
+ */
+async function getAllProducts() {
+  try {
+    const result = await db.query(
+      "SELECT product_id, product_type, batch_number, manufacturing_date, expiry_date, latest_stage FROM products ORDER BY manufacturing_date DESC"
+    );
+    return result.rows;
+  } catch (error) {
+    console.error(`❌ Failed to fetch products: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Check if an address has admin role
+ * @param {string} address - The address to check
+ * @returns {Promise<boolean>} - True if the address has admin role
+ */
+async function isAdmin(address) {
+  try {
+    return await contract.isAdmin(address);
+  } catch (error) {
+    console.error(`❌ Failed to check admin status: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Check if an address is the deployer (Account 0)
+ * @param {string} address - The address to check
+ * @returns {Promise<boolean>} - True if the address is the deployer
+ */
+async function isDeployer(address) {
+  try {
+    return await contract.isDeployer(address);
+  } catch (error) {
+    console.error(`❌ Failed to check deployer status: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Get all admin addresses from the contract
+ * @returns {Promise<string[]>} - Array of admin addresses
+ */
+async function getAdminAddresses() {
+  try {
+    return await contract.getAdminAddresses();
+  } catch (error) {
+    console.error(`❌ Failed to get admin addresses: ${error.message}`);
     throw error;
   }
 }
@@ -274,4 +322,8 @@ module.exports = {
   addProduct,
   verifyProduct,
   addStage,
+  getAllProducts,
+  isAdmin,
+  isDeployer,
+  getAdminAddresses,
 };

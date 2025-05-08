@@ -278,4 +278,3 @@ Ensure it can access both the blockchain and PostgreSQL DB
 🌐 Run Frontend
 Start the Next.js frontend via npm run dev
 Make sure it connects properly to the backend API routes and smart contract
-testing

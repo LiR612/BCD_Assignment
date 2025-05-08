@@ -45,34 +45,46 @@ export default function WalletConnect({ onAddressChange }: WalletConnectProps) {
 
   const disconnectWallet = () => {
     setAddress(null);
+    localStorage.removeItem("walletAddress"); // make sure to clear localStorage here
     if (onAddressChange) {
       onAddressChange(null);
     }
   };
 
+  // Restore saved wallet address from localStorage
+  useEffect(() => {
+    const savedAddress = localStorage.getItem("walletAddress");
+    if (savedAddress) {
+      setAddress(savedAddress);
+      onAddressChange?.(savedAddress);
+    }
+  }, []);
+
   // Listen for account changes
   useEffect(() => {
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        disconnectWallet();
+      } else {
+        setAddress(accounts[0]);
+        onAddressChange?.(accounts[0]);
+        localStorage.setItem("walletAddress", accounts[0]);
+      }
+    };
+  
     if (window.ethereum) {
-      window.ethereum.on("accountsChanged", (accounts: string[]) => {
-        if (accounts.length === 0) {
-          // User disconnected wallet
-          disconnectWallet();
-        } else {
-          // Account changed
-          setAddress(accounts[0]);
-          if (onAddressChange) {
-            onAddressChange(accounts[0]);
-          }
-        }
-      });
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
     }
-
+  
     return () => {
-      if (window.ethereum && window.ethereum.removeListener) {
-        window.ethereum.removeListener("accountsChanged", () => {});
+      if (window.ethereum) {
+        window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
       }
     };
   }, [onAddressChange]);
+  
+  
+  
 
   // Format address for display
   const formatAddress = (address: string) => {

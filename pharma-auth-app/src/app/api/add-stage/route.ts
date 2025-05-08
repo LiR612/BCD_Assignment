@@ -1,14 +1,14 @@
-// app/api/add-product/route.ts
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Get the wallet address from the request or localStorage (if available in API routes)
-    const walletAddress = body.walletAddress;
+    // Get wallet address from localStorage if available
+    const walletAddress =
+      body.walletAddress || localStorage.getItem("walletAddress");
 
-    const res = await fetch("http://localhost:3001/add-product", {
+    const res = await fetch("http://localhost:3001/add-stage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
