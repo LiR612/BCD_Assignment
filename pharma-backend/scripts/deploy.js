@@ -1,18 +1,3 @@
-// const hre = require("hardhat");
-
-// async function main() {
-//   const MedicineAuthenticity = await hre.ethers.getContractFactory("MedicineAuthenticity");
-//   const contract = await MedicineAuthenticity.deploy();
-//   await contract.waitForDeployment();
-//   console.log("Contract deployed to:", await contract.getAddress());
-// }
-
-// main().catch((error) => {
-//   console.error(error);
-//   process.exitCode = 1;
-// });
-
-
 const { ethers } = require("hardhat");
 
 async function main() {

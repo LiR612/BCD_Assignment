@@ -18,7 +18,7 @@ contract MedicineAuthenticity is AccessControl {
 
     // Mapping to store finalized product hashes
     mapping(string => Product) private finalizedProducts;
-    
+
     // Track all admin addresses for easy access
     address[] private adminAddresses;
 
@@ -26,6 +26,7 @@ contract MedicineAuthenticity is AccessControl {
     event ProductFinalized(string indexed productID, string productHash);
     event AdminAdded(address indexed adminAddress);
     event AdminRemoved(address indexed adminAddress);
+    event DebugAddress(address sender, string action);
 
     /**
      * @dev Constructor that grants admin role to the contract deployer
@@ -75,31 +76,41 @@ contract MedicineAuthenticity is AccessControl {
         );
         return finalizedProducts[_productID].productHash;
     }
-    
+
     /**
      * @dev Add a new admin to the system
      * @param _adminAddress Address to be granted admin role
      */
-    function addAdmin(address _adminAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function addAdmin(
+        address _adminAddress
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_adminAddress != address(0), "Invalid address");
         require(!hasRole(ADMIN_ROLE, _adminAddress), "Already an admin");
-        
+
         _grantRole(ADMIN_ROLE, _adminAddress);
         adminAddresses.push(_adminAddress);
-        
+
         emit AdminAdded(_adminAddress);
     }
-    
+
     /**
      * @dev Remove an admin from the system
      * @param _adminAddress Address to be revoked admin role
      */
-    function removeAdmin(address _adminAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function removeAdmin(
+        address _adminAddress
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        emit DebugAddress(msg.sender, "removeAdmin called");
         require(_adminAddress != address(0), "Invalid address");
+        require(
+            _adminAddress != getDeployerAddress(),
+            "Cannot remove the deployer"
+        );
+        require(_adminAddress != msg.sender, "Cannot remove yourself");
         require(hasRole(ADMIN_ROLE, _adminAddress), "Not an admin");
-        
+
         _revokeRole(ADMIN_ROLE, _adminAddress);
-        
+
         // Remove from adminAddresses array
         for (uint i = 0; i < adminAddresses.length; i++) {
             if (adminAddresses[i] == _adminAddress) {
@@ -108,10 +119,10 @@ contract MedicineAuthenticity is AccessControl {
                 break;
             }
         }
-        
+
         emit AdminRemoved(_adminAddress);
     }
-    
+
     /**
      * @dev Get all addresses with admin role
      * @return Array of admin addresses
@@ -119,7 +130,7 @@ contract MedicineAuthenticity is AccessControl {
     function getAdminAddresses() public view returns (address[] memory) {
         return adminAddresses;
     }
-    
+
     /**
      * @dev Get the deployer address (Account 0)
      * @return The address of the contract deployer
@@ -136,7 +147,7 @@ contract MedicineAuthenticity is AccessControl {
     function isAdmin(address _address) public view returns (bool) {
         return hasRole(ADMIN_ROLE, _address);
     }
-    
+
     /**
      * @dev Check if an address is the original deployer (Account 0)
      * @param _address Address to check
@@ -144,5 +155,13 @@ contract MedicineAuthenticity is AccessControl {
      */
     function isDeployer(address _address) public view returns (bool) {
         return _address == getDeployerAddress();
+    }
+
+    /**
+     * @dev Returns the address of the caller
+     * @return The address of the caller
+     */
+    function whoSender() public view returns (address) {
+        return msg.sender;
     }
 }

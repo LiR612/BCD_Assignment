@@ -10,6 +10,9 @@ const {
   isAdmin,
   isDeployer,
   getAdminAddresses,
+  addAdmin,
+  removeAdmin,
+  getDeployerAddress
 } = require("./cli"); // Updated import to include new functions
 
 const app = express();
@@ -25,6 +28,15 @@ app.get("/", (req, res) => {
   res.send("PharmaSafe Backend is running!");
 });
 
+app.get("/check-deployer/:address", async (req, res) => {
+  try {
+    const { address } = req.params;
+    const deployerStatus = await isDeployer(address);
+    res.json({ status: "success", isDeployer: deployerStatus });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
 // Add product (POST /add-product)
 app.post("/add-product", async (req, res) => {
   try {
@@ -54,11 +66,9 @@ app.post("/add-stage", async (req, res) => {
   try {
     const { productId, stageName, walletAddress } = req.body;
 
-    // If wallet address is provided, verify admin status
+    // Verify admin status
     if (walletAddress) {
-      // Use the isAdmin function from cli.js
       const adminStatus = await isAdmin(walletAddress);
-
       if (!adminStatus) {
         return res.status(403).json({
           status: "error",
@@ -67,10 +77,12 @@ app.post("/add-stage", async (req, res) => {
       }
     }
 
+    // Add the stage
     const result = await addStage(productId, stageName);
     res.json({ status: "success", result });
   } catch (err) {
-    res.status(500).json({ status: "error", message: err.message });
+    console.error("Error in /add-stage:", err.message);
+    res.status(400).json({ status: "error", message: err.message });
   }
 });
 
@@ -99,6 +111,108 @@ app.get("/products", async (req, res) => {
     const products = await getAllProducts();
     res.json({ status: "success", products });
   } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+app.get("/admins", async (req, res) => {
+  try {
+    const admins = await getAdminAddresses(); // Calls the function from cli.js
+    res.json({ status: "success", admins });
+    console.log("Admin addresses got");
+  } catch (err) {
+    console.error("Error fetching admins:", err.message);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+
+app.post("/add-admin", async (req, res) => {
+  try {
+    const { adminAddress, walletAddress } = req.body;
+
+    console.log("Admin Address Received in Backend:", adminAddress);
+    console.log("Caller Wallet Address:", walletAddress);
+
+    if (!adminAddress) {
+      return res.status(400).json({
+        status: "error",
+        message: "Admin address is required",
+      });
+    }
+
+    if (!walletAddress) {
+      return res.status(400).json({
+        status: "error",
+        message: "Wallet address is required to verify deployer status",
+      });
+    }
+
+    // Check if the caller is the deployer
+    const isCallerDeployer = await isDeployer(walletAddress);
+    if (!isCallerDeployer) {
+      return res.status(403).json({
+        status: "error",
+        message: "Unauthorized: Only the deployer can add admins",
+      });
+    }
+
+    // Call the addAdmin function from cli.js
+    await addAdmin(adminAddress);
+
+    res.json({ status: "success", message: `Admin ${adminAddress} added successfully` });
+  } catch (err) {
+    console.error("Error in Backend:", err.message);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Remove admin (POST /remove-admin)
+app.post("/remove-admin", async (req, res) => {
+  try {
+    const { adminAddress, walletAddress } = req.body;
+
+    console.log("Admin Address to Remove:", adminAddress);
+    console.log("Caller Wallet Address:", walletAddress);
+
+    if (!adminAddress) {
+      return res.status(400).json({
+        status: "error",
+        message: "Admin address is required",
+      });
+    }
+
+    if (!walletAddress) {
+      return res.status(400).json({
+        status: "error",
+        message: "Wallet address is required to verify deployer status",
+      });
+    }
+
+    // Check if the caller is the deployer
+    const isCallerDeployer = await isDeployer(walletAddress);
+    if (!isCallerDeployer) {
+      return res.status(403).json({
+        status: "error",
+        message: "Unauthorized: Only the deployer can remove admins",
+      });
+    }
+
+    // Prevent removing the deployer
+    const deployerAddress = await getDeployerAddress();
+    if (adminAddress === deployerAddress) {
+      return res.status(403).json({
+        status: "error",
+        message: "Cannot remove the deployer",
+      });
+    }
+
+    // Call the removeAdmin function from cli.js
+    await removeAdmin(adminAddress);
+
+    res.json({ status: "success", message: `Admin ${adminAddress} removed successfully` });
+  } catch (err) {
+    console.error("Error in Backend:", err.message);
     res.status(500).json({ status: "error", message: err.message });
   }
 });

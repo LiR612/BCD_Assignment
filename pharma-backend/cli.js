@@ -86,9 +86,35 @@ async function addStage(productID, stageName) {
 
     const product = productResult.rows[0];
 
-    // Convert manufacturing_date and expiry_date to Date objects
-    const manufacturingDate = new Date(product.manufacturing_date);
-    const expiryDate = new Date(product.expiry_date);
+    // Check if the product is already finalized
+    if (product.latest_stage === "Complete") {
+      throw new Error(`Product ${productID} is already finalized. No further changes allowed.`);
+    }
+
+    // Define the valid stages
+    const validStages = [
+      "Manufacturing",
+      "Regulatory Approval",
+      "Packaging and Labeling",
+      "Storage",
+      "Distribution",
+      "Complete",
+    ];
+
+    // Validate stage order
+    const currentStageIndex = validStages.indexOf(product.latest_stage);
+    const newStageIndex = validStages.indexOf(stageName);
+
+    if (newStageIndex === -1) {
+      throw new Error(`Invalid stage: ${stageName}`);
+    }
+
+    // Prevent skipping stages or going backward
+    if (newStageIndex !== currentStageIndex + 1) {
+      throw new Error(
+        `Invalid stage transition: You must move sequentially from "${product.latest_stage}" to "${validStages[currentStageIndex + 1]}".`
+      );
+    }
 
     // Log the stage in the database
     const authenticator = wallet.address;
@@ -126,8 +152,8 @@ async function addStage(productID, stageName) {
           product.product_id,
           product.product_type,
           product.batch_number,
-          manufacturingDate.toISOString(),
-          expiryDate.toISOString(),
+          new Date(product.manufacturing_date).toISOString(),
+          new Date(product.expiry_date).toISOString(),
           JSON.stringify(stages),
         ]
       );
@@ -146,7 +172,6 @@ async function addStage(productID, stageName) {
     throw error;
   }
 }
-
 /**
  * Verify product authenticity by comparing blockchain and database hashes
  * @param {string} productID - The product ID to verify
@@ -251,6 +276,42 @@ async function isAdmin(address) {
   }
 }
 
+async function addAdmin(adminAddress) {
+  try {
+    if (!adminAddress) {
+      throw new Error("Admin address is required");
+    }
+
+    console.log(`Adding admin: ${adminAddress}...`);
+    const tx = await contract.addAdmin(adminAddress);
+    await tx.wait();
+    console.log(`✅ Admin ${adminAddress} added successfully`);
+  } catch (error) {
+    console.error(`❌ Failed to add admin: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Remove an admin from the system
+ * @param {string} adminAddress - The address of the admin to remove
+ */
+async function removeAdmin(adminAddress) {
+  try {
+    if (!adminAddress) {
+      throw new Error("Admin address is required");
+    }
+
+    console.log(`Removing admin: ${adminAddress}...`);
+    const tx = await contract.removeAdmin(adminAddress);
+    await tx.wait();
+    console.log(`✅ Admin ${adminAddress} removed successfully`);
+  } catch (error) {
+    console.error(`❌ Failed to remove admin: ${error.message}`);
+    throw error;
+  }
+}
+
 /**
  * Check if an address is the deployer (Account 0)
  * @param {string} address - The address to check
@@ -278,6 +339,18 @@ async function getAdminAddresses() {
   }
 }
 
+async function getDeployerAddress() {
+  try {
+    const deployerAddress = await contract.getDeployerAddress();
+    console.log(`Deployer Address: ${deployerAddress}`);
+    return deployerAddress;
+  } catch (error) {
+    console.error(`❌ Failed to get deployer address: ${error.message}`);
+    throw error;
+  }
+}
+
+
 /**
  * Main function to handle CLI commands
  */
@@ -298,12 +371,28 @@ async function main() {
         await addStage(args[0], args[1]);
         break;
 
+      case "addAdmin":
+        await addAdmin(args[0]);
+        break;
+
+      case "removeAdmin":
+        await removeAdmin(args[0]);
+        break;
+
+      case "listAdmins":
+        const admins = await getAdminAddresses();
+        console.log("Admin Addresses:", admins);
+        break;
+
       default:
         console.log(`
 📋 Available commands:
   addProduct <id> <type> <batch>     - Add a new product
   verify <id>                        - Verify product authenticity
   addStage <id> <stageName>          - Add a stage to product lifecycle
+  addAdmin <adminAddress>            - Add an admin account
+  removeAdmin <adminAddress>         - Remove an admin account
+  listAdmins                         - List Admins
         `);
     }
   } catch (error) {
@@ -326,4 +415,7 @@ module.exports = {
   isAdmin,
   isDeployer,
   getAdminAddresses,
+  addAdmin,
+  removeAdmin,
+  getDeployerAddress
 };

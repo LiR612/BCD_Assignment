@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 export default function AdminPage() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isDeployer, setIsDeployer] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Load login info from localStorage on component mount
@@ -16,6 +17,7 @@ export default function AdminPage() {
     if (savedAddress) {
       setWalletAddress(savedAddress);
       checkAdminStatus(savedAddress);
+      checkDeployerStatus(savedAddress);
     }
   }, []);
 
@@ -31,18 +33,36 @@ export default function AdminPage() {
 
       if (data.status === "success") {
         setIsAdmin(data.isAdmin);
-        // Store admin status in localStorage
         localStorage.setItem("isAdmin", data.isAdmin.toString());
-        console.log(`Admin status set to: ${data.isAdmin}`);
       } else {
         setIsAdmin(false);
         localStorage.removeItem("isAdmin");
-        console.log("Admin check failed, setting isAdmin to false");
       }
     } catch (error) {
       console.error("Failed to check admin status:", error);
-      setIsAdmin(false);
+      setIsAdmin(false); // Explicitly set to false on error
       localStorage.removeItem("isAdmin");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkDeployerStatus = async (address: string) => {
+    try {
+      setIsLoading(true);
+      console.log(`Checking deployer status for address: ${address}`);
+      const response = await fetch(`/api/check-deployer/${address}`);
+      const data = await response.json();
+      console.log("Deployer check response:", data);
+
+      if (data.status === "success") {
+        setIsDeployer(data.isDeployer);
+      } else {
+        setIsDeployer(false);
+      }
+    } catch (error) {
+      console.error("Failed to check deployer status:", error);
+      setIsDeployer(false); // Explicitly set to false on error
     } finally {
       setIsLoading(false);
     }
@@ -53,10 +73,12 @@ export default function AdminPage() {
     if (address) {
       localStorage.setItem("walletAddress", address);
       checkAdminStatus(address);
+      checkDeployerStatus(address);
     } else {
       localStorage.removeItem("walletAddress");
       localStorage.removeItem("isAdmin");
       setIsAdmin(false);
+      setIsDeployer(false);
     }
   };
 
@@ -85,7 +107,7 @@ export default function AdminPage() {
 
       {/* Admin Status */}
       {walletAddress && !isLoading && (
-        <div className="mb-4">
+        <div className="mb-4 text-center">
           <p
             className={
               isAdmin
@@ -97,6 +119,9 @@ export default function AdminPage() {
               ? "✅ Admin access granted"
               : "❌ This wallet does not have admin privileges"}
           </p>
+          {isAdmin && isDeployer && (
+            <p className="text-blue-600 font-semibold">Owner/ Deployer </p>
+          )}
         </div>
       )}
 
@@ -139,6 +164,30 @@ export default function AdminPage() {
         >
           📦 View All Products
         </button>
+
+        <button
+          onClick={() => router.push("/admin/add-admin")}
+          disabled={!walletAddress || !isAdmin || !isDeployer || isLoading}
+          className={`w-full py-3 rounded text-white font-semibold ${
+            walletAddress && isAdmin && isDeployer && !isLoading
+              ? "bg-yellow-500 hover:bg-yellow-600"
+              : "bg-gray-400 cursor-not-allowed"
+          }`}
+        >
+          👤 Add Admin
+        </button>
+
+        <button
+          onClick={() => router.push("/admin/remove-admin")}
+          disabled={!walletAddress || !isAdmin || !isDeployer || isLoading}
+          className={`w-full py-3 rounded text-white font-semibold ${
+            walletAddress && isAdmin && isDeployer && !isLoading
+              ? "bg-red-500 hover:bg-red-600"
+              : "bg-gray-400 cursor-not-allowed"
+          }`}
+        >
+          🚫 Remove Admin
+        </button>
       </div>
 
       {!walletAddress && (
@@ -150,6 +199,11 @@ export default function AdminPage() {
       {walletAddress && !isAdmin && !isLoading && (
         <p className="mt-4 text-sm text-red-600">
           Your wallet does not have admin privileges
+        </p>
+      )}
+      {walletAddress && isAdmin && !isDeployer && (
+        <p className="mt-4 text-sm text-blue-600">
+          Only the deployer can add or remove admins.
         </p>
       )}
     </main>

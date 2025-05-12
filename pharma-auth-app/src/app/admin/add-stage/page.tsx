@@ -3,11 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-const STAGE_OPTIONS = ["Manufacturing", "Packaging", "Complete"];
+const STAGE_OPTIONS = [
+  "Manufacturing",
+  "Regulatory Approval",
+  "Packaging and Labeling",
+  "Storage",
+  "Distribution",
+  "Complete",
+];
 
 export default function AddStagePage() {
   const [products, setProducts] = useState<
-    { product_id: string; product_type: string }[]
+    { product_id: string; product_type: string; latest_stage: string }[]
   >([]);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [stage, setStage] = useState("");
@@ -31,6 +38,37 @@ export default function AddStagePage() {
   const handleSubmit = async () => {
     if (!selectedProduct || !stage) return alert("Please fill in all fields");
 
+    const product = products.find((p) => p.product_id === selectedProduct);
+    if (!product) return alert("Invalid product selected");
+
+    // Validate stage order
+    const validStages = [
+      "Manufacturing",
+      "Regulatory Approval",
+      "Packaging and Labeling",
+      "Storage",
+      "Distribution",
+      "Complete",
+    ];
+    const currentStageIndex = validStages.indexOf(product.latest_stage);
+    const newStageIndex = validStages.indexOf(stage);
+
+    if (newStageIndex === -1) {
+      return alert(`Invalid stage: ${stage}`);
+    }
+
+    // Prevent skipping stages or going backward
+    if (currentStageIndex == 5) {
+      return alert(
+        `❗The product has successfully completed the supply chain process. No more stages to add`
+      );
+    }
+    if (newStageIndex !== currentStageIndex + 1) {
+      return alert(
+        `❗Invalid stage transition: You must move sequentially from "${product.latest_stage}" to "${validStages[currentStageIndex + 1]}".`
+      );
+    }
+
     // Get wallet address from localStorage for authentication
     const walletAddress = localStorage.getItem("walletAddress");
 
@@ -45,7 +83,23 @@ export default function AddStagePage() {
     });
 
     const data = await res.json();
-    alert(data.status === "success" ? "✅ Stage added" : `❌ ${data.message}`);
+    if (data.status === "success") {
+      alert("✅ Stage added");
+
+      // Re-fetch the product list to update the current stage
+      fetch("/api/get-products")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "success") {
+            setProducts(data.products); // Update the products state
+          } else {
+            setError(data.message || "Failed to load products");
+          }
+        })
+        .catch(() => setError("Failed to fetch product list"));
+    } else {
+      alert(`❌ ${data.message}`);
+    }
   };
 
   return (
@@ -84,7 +138,7 @@ export default function AddStagePage() {
             <option value="">Select Product</option>
             {products.map((p) => (
               <option key={p.product_id} value={p.product_id}>
-                {p.product_id} - {p.product_type}
+                {p.product_id} - {p.product_type} (Current Stage: {p.latest_stage})
               </option>
             ))}
           </select>
@@ -100,7 +154,7 @@ export default function AddStagePage() {
 
         {/* Quick Options */}
         <div className="flex flex-wrap gap-2">
-          {STAGE_OPTIONS.map((s) => (
+          {STAGE_OPTIONS.map((s, index) => (
             <button
               key={s}
               onClick={() => setStage(s)}
@@ -111,7 +165,7 @@ export default function AddStagePage() {
               }`}
               disabled={loading || error !== null}
             >
-              {s}
+              {`0${index + 1} - ${s}`} {/* Add stage number before the stage name */}
             </button>
           ))}
         </div>
