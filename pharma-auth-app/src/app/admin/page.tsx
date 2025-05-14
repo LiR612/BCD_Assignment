@@ -116,7 +116,7 @@ export default function AdminPage() {
             }
           >
             {isAdmin
-              ? "✅ Admin access granted"
+              ? "✅ Admin"
               : "❌ This wallet does not have admin privileges"}
           </p>
           {isAdmin && isDeployer && (
@@ -165,29 +165,23 @@ export default function AdminPage() {
           📦 View All Products
         </button>
 
-        <button
-          onClick={() => router.push("/admin/add-admin")}
-          disabled={!walletAddress || !isAdmin || !isDeployer || isLoading}
-          className={`w-full py-3 rounded text-white font-semibold ${
-            walletAddress && isAdmin && isDeployer && !isLoading
-              ? "bg-yellow-500 hover:bg-yellow-600"
-              : "bg-gray-400 cursor-not-allowed"
-          }`}
-        >
-          👤 Add Admin
-        </button>
+        {walletAddress && isAdmin && isDeployer && !isLoading && (
+          <button
+            onClick={() => router.push("/admin/add-admin")}
+            className="w-full py-3 rounded text-white font-semibold bg-yellow-500 hover:bg-yellow-600"
+          >
+            👤 Add Admin
+          </button>
+        )}
 
-        <button
-          onClick={() => router.push("/admin/remove-admin")}
-          disabled={!walletAddress || !isAdmin || !isDeployer || isLoading}
-          className={`w-full py-3 rounded text-white font-semibold ${
-            walletAddress && isAdmin && isDeployer && !isLoading
-              ? "bg-red-500 hover:bg-red-600"
-              : "bg-gray-400 cursor-not-allowed"
-          }`}
-        >
-          🚫 Remove Admin
-        </button>
+        {walletAddress && isAdmin && isDeployer && !isLoading && (
+          <button
+            onClick={() => router.push("/admin/remove-admin")}
+            className="w-full py-3 rounded text-white font-semibold bg-red-500 hover:bg-red-600"
+          >
+            🚫 Remove Admin
+          </button>
+        )}
       </div>
 
       {!walletAddress && (
@@ -199,11 +193,6 @@ export default function AdminPage() {
       {walletAddress && !isAdmin && !isLoading && (
         <p className="mt-4 text-sm text-red-600">
           Your wallet does not have admin privileges
-        </p>
-      )}
-      {walletAddress && isAdmin && !isDeployer && (
-        <p className="mt-4 text-sm text-blue-600">
-          Only the deployer can add or remove admins.
         </p>
       )}
     </main>

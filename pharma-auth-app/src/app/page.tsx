@@ -16,9 +16,10 @@ export default function Home() {
   const [showScanner, setShowScanner] = useState(false);
 
   const handleCheck = () => {
-    if (productId.trim() !== "") {
-      router.push(`/product/${productId}`);
-    }
+      if (productId.trim() !== "") {
+        const formattedProductId = productId.toUpperCase();
+        router.push(`/product/${formattedProductId}`);
+      }
   };
 
   return (
